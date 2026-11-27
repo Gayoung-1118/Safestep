@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SafeStep 연동 데모</title>
+<meta name="description" content="차량 화면과 휴대폰 화면이 사고 처리 단계에 맞춰 함께 넘어가는 SafeStep 시연용 데모">
+<meta name="theme-color" content="#09090a">
+<link rel="icon" type="image/png" href="img/favicon.png">
+<style>
+@font-face{font-family:"Pretendard Variable";src:url("fonts/PretendardVariable.woff2") format("woff2");font-weight:45 920;font-display:swap}
+:root{--ink:#09090a;--carbon:#131315;--line:rgba(255,255,255,.10);--bone:#eeede9;--ash:#8d8d93;--hazard:#ff9d2e;--green:#2fae7c;
+--raise:6px 6px 14px rgba(0,0,0,.85),-3px -3px 10px rgba(255,255,255,.08);
+--press:inset 4px 4px 9px rgba(0,0,0,.85),inset -3px -3px 8px rgba(255,255,255,.09);
+--rim-up:linear-gradient(145deg,rgba(255,255,255,.55),rgba(255,255,255,.16) 50%,rgba(255,255,255,.30));
+--rim-in:linear-gradient(145deg,rgba(255,255,255,.26),rgba(255,255,255,.12) 50%,rgba(255,255,255,.55));
+--face-up:linear-gradient(145deg,#2c2c30,#1c1c1f);--face-hi:linear-gradient(145deg,#4a4a50,#303035);--face-in:linear-gradient(145deg,#0b0b0d,#1d1d21);
+color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ink);color:var(--bone);font-family:"Pretendard Variable","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;font-size:16px;line-height:1.6;letter-spacing:-.02em;word-break:keep-all;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--bone);outline-offset:3px}
+.wrap{max-width:1360px;margin:0 auto;padding:0 clamp(14px,3vw,36px)}
+.mono{font-size:12px;font-weight:500;letter-spacing:.04em;color:var(--ash);font-variant-numeric:tabular-nums}
+header{border-bottom:1px solid var(--line)}
+header .wrap{display:flex;align-items:center;gap:16px;min-height:60px;flex-wrap:wrap;padding-top:8px;padding-bottom:8px}
+.brand{display:flex;align-items:center;gap:10px}.brand img{width:24px}.brand b{font-size:17px;font-weight:700}.brand span{color:var(--ash);font-size:14px}
+.seg{margin-left:auto;display:flex;gap:4px;padding:5px;border-radius:999px;border:1px solid transparent;background:var(--face-in) padding-box,var(--rim-in) border-box;box-shadow:var(--press)}
+.seg button{background:none;border:1px solid transparent;border-radius:999px;padding:7px 16px;font-size:14px;color:var(--ash);font-weight:500}
+.seg button[aria-pressed="true"]{color:var(--bone);font-weight:650;background:var(--face-hi) padding-box,var(--rim-up) border-box;box-shadow:var(--raise)}
+
+.stages{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));margin:22px 0 18px;border-top:1px solid var(--line);position:relative}
+.stages i{position:absolute;top:-1px;left:0;height:1px;background:var(--bone);transition:width .5s cubic-bezier(.6,0,.3,1)}
+.stages span{position:relative;padding:12px 6px 0 0;font-size:13px;color:#5d5d63;transition:color .3s}
+.stages span::before{content:"";position:absolute;top:-4px;left:0;width:7px;height:7px;border-radius:50%;background:var(--ink);border:1px solid #5d5d63}
+.stages .done{color:var(--ash)}.stages .done::before{background:var(--bone);border-color:var(--bone)}
+.stages .cur{color:var(--bone);font-weight:650}.stages .cur::before{background:var(--hazard);border-color:var(--hazard);box-shadow:0 0 10px 2px rgba(255,157,46,.5)}
+
+.stage{display:grid;grid-template-columns:minmax(0,1fr) clamp(200px,20vw,270px);gap:clamp(16px,2.5vw,36px);align-items:center}
+.dev{display:flex;flex-direction:column;gap:10px;min-width:0}
+.dev .lbl{display:flex;justify-content:space-between;gap:8px}
+.dev .lbl b{font-size:13px;font-weight:600}
+.act{font-size:11px;font-weight:650;color:var(--ink);background:var(--hazard);border-radius:999px;padding:2px 9px;visibility:hidden}
+.dev.on .act{visibility:visible}
+.bezel{position:relative;padding:8px;border-radius:18px;background:linear-gradient(160deg,#26262a,#0e0e10 60%);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08),0 24px 50px -24px rgba(0,0,0,.9);border:0;display:block;width:100%;transition:box-shadow .3s}
+.dev.on .bezel,.dev.on .phone{box-shadow:0 0 0 2px var(--hazard),0 0 34px -6px rgba(255,157,46,.55)}
+.screen{position:relative;border-radius:11px;overflow:hidden;background:#e5e6e9;aspect-ratio:16/9}
+.screen img,.pscreen img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity .35s}
+.screen img.show,.pscreen img.show{opacity:1}
+.pcol{display:flex;flex-direction:column;align-items:center;gap:10px}
+.pcol .lbl{width:100%}
+.phone{position:relative;width:100%;padding:9px;border-radius:38px;background:linear-gradient(160deg,#2a2a2e,#0e0e10 70%);border:0;display:block;box-shadow:inset 0 0 0 1px rgba(255,255,255,.1),0 24px 50px -24px rgba(0,0,0,.9);transition:box-shadow .3s}
+.pscreen{position:relative;border-radius:30px;overflow:hidden;background:#e5e6e9;aspect-ratio:1/2}
+.phone.land{border-radius:22px;padding:7px}.phone.land .pscreen{aspect-ratio:1600/784;border-radius:16px}
+.standby{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;color:#17181b;padding:20px;opacity:0;transition:opacity .35s}
+.standby.show{opacity:1}
+.standby img{position:static;width:54px;height:54px;opacity:1;padding:12px;border-radius:16px;box-shadow:-6px -6px 14px rgba(255,255,255,.95),7px 7px 16px rgba(148,153,166,.42)}
+.standby b{font-size:16px;font-weight:700}.standby span{font-size:12.5px;color:#7a7d85;max-width:15em}
+
+.panel{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:end;margin:26px 0 40px;padding-top:22px;border-top:1px solid var(--line)}
+.panel h1{margin:6px 0 8px;font-size:clamp(24px,3vw,38px);font-weight:750;letter-spacing:-.04em;line-height:1.2}
+.panel p{margin:0;color:#c9c8c4;font-weight:300;max-width:44em;min-height:3.2em}
+.ctl{display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end}
+.btn{display:inline-flex;align-items:center;gap:8px;font-size:15px;font-weight:600;padding:13px 22px;border-radius:999px;border:1px solid transparent;background:var(--face-up) padding-box,var(--rim-up) border-box;box-shadow:var(--raise)}
+.btn.main{background:var(--bone);color:var(--ink);box-shadow:var(--raise);font-weight:700}
+.btn.ghost{background:transparent;border-color:rgba(255,255,255,.22);box-shadow:none}
+.btn:active{background:var(--face-in) padding-box,var(--rim-in) border-box;box-shadow:var(--press);color:var(--bone)}
+.btn:disabled{opacity:.35;cursor:default}
+footer{border-top:1px solid var(--line);padding:22px 0 40px}footer p{margin:0;font-size:13px;color:var(--ash)}
+@media (max-width:820px){
+  .stage{grid-template-columns:1fr}.pcol{max-width:300px;margin:0 auto;width:100%}
+  .panel{grid-template-columns:1fr}.ctl{justify-content:flex-start}
+  .stages{grid-template-columns:repeat(4,minmax(0,1fr));row-gap:18px}.stages i{display:none}
+  .seg{margin-left:0}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <div class="brand"><img src="img/logo-w.png" alt=""><b>SafeStep</b><span>차량 · 휴대폰 연동 데모</span></div>
+  <div class="seg" role="group" aria-label="차종">
+    <button type="button" data-ev="0" aria-pressed="true">내연기관</button>
+    <button type="button" data-ev="1" aria-pressed="false">전기차</button>
+  </div>
+</div></header>
+
+<main class="wrap">
+  <div class="stages" id="stages"><i id="bar"></i></div>
+
+  <div class="stage">
+    <div class="dev" id="carDev">
+      <div class="lbl"><b>차량 디스플레이</b><span class="act">여기서 조작</span></div>
+      <button class="bezel" type="button" id="carBtn" aria-label="차량 화면에서 다음 단계로"><div class="screen" id="car"></div></button>
+    </div>
+    <div class="dev pcol" id="phDev">
+      <div class="lbl"><b id="phLbl">운전자 휴대폰</b><span class="act">여기서 조작</span></div>
+      <button class="phone" type="button" id="phBtn" aria-label="휴대폰 화면에서 다음 단계로"><div class="pscreen" id="ph">
+        <div class="standby" id="standby"><img src="img/logo-k.png" alt=""><b id="sbT"></b><span id="sbD"></span></div>
+      </div></button>
+    </div>
+  </div>
+
+  <section class="panel" aria-live="polite">
+    <div>
+      <span class="mono" id="meta"></span>
+      <h1 id="title"></h1>
+      <p id="desc"></p>
+    </div>
+    <div class="ctl">
+      <button class="btn ghost" type="button" id="prev">이전</button>
+      <button class="btn" type="button" id="auto">자동 재생</button>
+      <button class="btn main" type="button" id="next"></button>
+    </div>
+  </section>
+</main>
+
+<footer><div class="wrap"><p>IBEL 학부연구생 프로젝트 · 이가영. 시연용 데모이며 화면 속 데이터는 예시값입니다. 손상 정보는 차량 센서 데이터 기반 추정을 가정합니다. 방향키 ← → 로도 넘길 수 있어요.</p></div></footer>
+
+<script>
+const STAGES=["감지","손상","안전","부상","기록","교환","접수","완료"];
+/* c: 차량 화면 번호(ev: 전기차일 때), p: 휴대폰 화면 번호(없으면 대기 화면), a: 조작 위치 */
+const ALL=[
+ {c:1,p:0,sb:["보호 중","차량과 연결되어 있어요. 충격이 오면 바로 알려 드려요."],a:"none",s:-1,t:"15:40",title:"주행 중 상시 감지",d:"차량이 충격·센서·경고등을 계속 살핍니다. 휴대폰은 차량과 연결만 유지합니다.",btn:"충격 발생시키기"},
+ {c:2,p:1,a:"car",s:0,t:"15:42",title:"사고 확인",d:"충격과 급정지를 감지하면 차량 화면과 휴대폰 잠금 화면에 동시에 알립니다. 운전자가 확인해야 루틴이 시작됩니다.",btn:"예, 사고가 났어요"},
+ {c:3,ev:12,p:0,sb:["차량 화면에서 진행 중","정차 중에는 차량 화면에서 먼저 안내해요."],a:"car",s:1,t:"15:42",title:"손상 추정 지도",d:"충격 방향·세기와 센서 상태로 부위별 손상을 추정하고, 자력 이동이 가능한지 알려 줍니다.",btn:"상세 보기"},
+ {c:4,ev:13,p:0,sb:["차량 화면에서 진행 중","정차 중에는 차량 화면에서 먼저 안내해요."],a:"car",s:1,t:"15:42",title:"손상 상세",d:"부위를 선택하면 추정 근거와 조치 안내를 보여 줍니다. 전기차는 고전압 배터리팩 상태를 함께 확인합니다.",btn:"다음"},
+ {c:5,ev:14,p:0,sb:["차량 화면에서 진행 중","비상등을 켜고 트렁크를 열었어요."],a:"car",s:2,t:"15:44",title:"안전 확보",d:"비상등과 트렁크를 차량이 직접 제어하고, 가드레일 밖 대피와 안전삼각대 설치를 안내합니다.",btn:"대피했어요"},
+ {c:6,p:0,sb:["차량 화면에서 진행 중","부상 여부를 먼저 확인해요."],a:"car",s:3,t:"15:45",title:"부상 확인",d:"차량 손상보다 사람을 먼저 확인합니다. 다친 사람이 있으면 119 연결 버튼이 바로 나옵니다.",btn:"아니요, 모두 괜찮아요"},
+ {c:7,p:2,a:"phone",s:4,t:"15:45",title:"휴대폰으로 이어가기",d:"차 밖에서 해야 하는 일은 휴대폰이 넘겨받습니다. 지금 할 일과 진행 단계가 그대로 이어집니다.",btn:"촬영 시작"},
+ {c:8,p:3,land:1,a:"phone",s:4,t:"15:46",title:"가이드 촬영",d:"전경, 내 차, 상대 차, 번호판, 스키드 마크 순서로 안내합니다. 찍은 사진은 차량 화면 체크리스트에 바로 반영됩니다.",btn:"촬영"},
+ {c:8,p:4,a:"phone",s:4,t:"15:46",title:"촬영 확인",d:"위치와 시각이 자동으로 붙습니다. 저장하면 다음 장면으로 넘어갑니다.",btn:"저장하고 다음"},
+ {c:8,p:5,a:"phone",s:4,t:"15:48",title:"현장 기록 완료",d:"5장을 모두 기록했습니다. 장면별로 다시 찍거나 추가할 수 있습니다.",btn:"다음 · 정보 교환"},
+ {c:8,p:6,a:"phone",s:5,t:"15:49",title:"QR로 정보 교환",d:"내 QR을 상대 차주에게 보여 줍니다. 상대가 앱이 없어도 웹 페이지로 입력할 수 있습니다.",btn:"상대 차주가 QR 스캔"},
+ {c:8,p:12,other:1,a:"phone",s:5,t:"15:49",title:"상대 차주 입력 (웹)",d:"상대 차주의 휴대폰에서는 설치 없이 웹 페이지가 열립니다. 차량번호·보험사·연락처만 입력하면 됩니다.",btn:"정보 보내기"},
+ {c:9,p:7,a:"phone",s:5,t:"15:50",title:"상대방 정보 수신",d:"받은 정보가 차량 화면과 휴대폰에 동시에 표시됩니다.",btn:"다음 · 보험 접수"},
+ {c:9,p:8,a:"phone",s:6,t:"15:51",title:"보험 접수 미리보기",d:"보험사로 보낼 항목을 먼저 보여 주고, 원하지 않는 항목은 끌 수 있습니다.",btn:"보험사에 접수하기"},
+ {c:10,ev:17,p:9,a:"phone",s:6,t:"15:53",title:"접수 완료 · 출동 현황",d:"접수번호와 보험사 판단, 출동 도착 예정 시각이 양쪽 화면에 함께 표시됩니다.",btn:"다음",evBtn:"배터리 감시 보기"},
+ {c:16,evOnly:1,p:9,a:"car",s:6,t:"15:54",title:"사고 후 배터리 감시",d:"전기차는 사고 뒤에도 배터리 온도를 계속 지켜보고, 이상이 생기면 차량과 휴대폰으로 동시에 알립니다.",btn:"다음"},
+ {c:10,ev:16,p:10,a:"phone",s:7,t:"15:54",title:"가족 알림",d:"메시지와 받는 사람을 확인하고, 현재 위치를 붙여 보냅니다.",btn:"알림 보내기"},
+ {c:11,ev:18,p:11,a:"phone",s:7,t:"15:54",title:"처리 완료 · 사고 리포트",d:"손상 추정, 현장 기록, 상대 정보, 접수 내역이 리포트로 저장됩니다. 감지부터 마무리까지 12분입니다.",btn:"처음부터 다시"}
+];
+const pad=n=>String(n).padStart(2,"0");
+const $=id=>document.getElementById(id);
+let ev=0,i=0,timer=null;
+const car=$("car"),ph=$("ph"),imgs={};
+function img(parent,src){
+  if(imgs[src])return imgs[src];
+  const el=new Image();el.alt="";el.src=src;parent.appendChild(el);return imgs[src]=el;
+}
+for(let k=1;k<=18;k++)img(car,"img/nav"+pad(k)+".webp");
+for(let k=1;k<=12;k++)img(ph,"img/ph"+pad(k)+".webp");
+STAGES.forEach(n=>{const s=document.createElement("span");s.textContent=n;$("stages").appendChild(s)});
+const steps=()=>ALL.filter(s=>ev||!s.evOnly);
+function render(){
+  const L=steps(),s=L[i],cn=ev&&s.ev?s.ev:s.c;
+  car.querySelectorAll("img").forEach(e=>e.classList.toggle("show",e===imgs["img/nav"+pad(cn)+".webp"]));
+  ph.querySelectorAll(":scope>img").forEach(e=>e.classList.toggle("show",!!s.p&&e===imgs["img/ph"+pad(s.p)+".webp"]));
+  $("standby").classList.toggle("show",!s.p);
+  if(!s.p){$("sbT").textContent=s.sb[0];$("sbD").textContent=s.sb[1]}
+  $("phBtn").classList.toggle("land",!!s.land);
+  $("phLbl").textContent=s.other?"상대 차주 휴대폰":"운전자 휴대폰";
+  $("carDev").classList.toggle("on",s.a==="car");$("phDev").classList.toggle("on",s.a==="phone");
+  document.querySelectorAll("#stages span").forEach((e,k)=>{e.className=k<s.s?"done":k===s.s?"cur":""});
+  $("bar").style.width=s.s<0?"0":(s.s/8*100)+"%";
+  $("meta").textContent=(i+1)+" / "+L.length+" · "+s.t+" · "+(ev?"전기차":"내연기관")+" · "+(s.a==="car"?"차량에서 조작":s.a==="phone"?(s.other?"상대 차주 휴대폰에서 조작":"휴대폰에서 조작"):"대기");
+  $("title").textContent=s.title;$("desc").textContent=s.d;
+  $("next").textContent=ev&&s.evBtn?s.evBtn:s.btn;$("prev").disabled=i===0;
+}
+function go(n){const L=steps();i=(n+L.length)%L.length;render()}
+function stop(){clearInterval(timer);timer=null;$("auto").textContent="자동 재생"}
+$("next").onclick=()=>{stop();go(i+1)};
+$("prev").onclick=()=>{stop();if(i>0)go(i-1)};
+$("carBtn").onclick=()=>{if(steps()[i].a!=="phone"){stop();go(i+1)}};
+$("phBtn").onclick=()=>{if(steps()[i].a==="phone"){stop();go(i+1)}};
+$("auto").onclick=()=>{
+  if(timer){stop();return}
+  $("auto").textContent="일시 정지";
+  timer=setInterval(()=>{if(i>=steps().length-1){stop();return}go(i+1)},3200);
+};
+document.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{
+  const cur=steps()[i];ev=+b.dataset.ev;
+  document.querySelectorAll(".seg button").forEach(x=>x.setAttribute("aria-pressed",x===b));
+  const k=steps().indexOf(cur);i=k<0?Math.min(i,steps().length-1):k;render();
+});
+document.addEventListener("keydown",e=>{
+  if(e.key==="ArrowRight"){stop();go(i+1)}
+  if(e.key==="ArrowLeft"&&i>0){stop();go(i-1)}
+});
+render();
+</script>
+</body>
+</html>
